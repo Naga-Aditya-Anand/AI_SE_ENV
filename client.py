@@ -28,21 +28,33 @@ class AiSeEnvEnv(
     Example:
         >>> # Connect to a running server
         >>> with AiSeEnvEnv(base_url="http://localhost:8000") as client:
-        ...     result = client.reset()
-        ...     print(result.observation.echoed_message)
+        ...     result = client.reset(difficulty="easy")
+        ...     print(result.observation.code)
         ...
-        ...     result = client.step(AiSeEnvAction(message="Hello!"))
-        ...     print(result.observation.echoed_message)
+        ...     result = client.step(AiSeEnvAction(action_type="fix", content="fixed_code"))
+        ...     print(result.observation.reward)
 
     Example with Docker:
         >>> # Automatically start container and connect
         >>> client = AiSeEnvEnv.from_docker_image("AI_SE_ENV-env:latest")
         >>> try:
-        ...     result = client.reset()
-        ...     result = client.step(AiSeEnvAction(message="Test"))
+        ...     result = client.reset(difficulty="easy")
+        ...     result = client.step(AiSeEnvAction(action_type="fix", content="code"))
         ... finally:
         ...     client.close()
     """
+
+    def _reset_payload(self, **kwargs) -> Dict:
+        """
+        Convert reset keyword arguments to JSON payload.
+
+        Args:
+            **kwargs: Reset parameters (e.g., difficulty="easy")
+
+        Returns:
+            Dictionary representation suitable for JSON encoding
+        """
+        return kwargs
 
     def _step_payload(self, action: AiSeEnvAction) -> Dict:
         """
@@ -55,12 +67,19 @@ class AiSeEnvEnv(
             Dictionary representation suitable for JSON encoding
         """
         return {
-            "message": action.message,
+            "action_type": action.action_type,
+            "content": action.content,
         }
 
     def _parse_result(self, payload: Dict) -> StepResult[AiSeEnvObservation]:
         """
         Parse server response into StepResult[AiSeEnvObservation].
+
+        The server may return done/reward either at the top level of the payload
+        OR nested inside the "observation" dict (since AiSeEnvObservation carries
+        those fields itself). We check obs_data first and fall back to the top
+        level, always providing a safe default so we never pass None to a typed
+        float/bool field.
 
         Args:
             payload: JSON response data from server
@@ -69,18 +88,31 @@ class AiSeEnvEnv(
             StepResult with AiSeEnvObservation
         """
         obs_data = payload.get("observation", {})
+
+        # done and reward live inside AiSeEnvObservation, so the server may
+        # serialise them under "observation" rather than at the top level.
+        # Check obs_data first, then fall back to the top-level payload key,
+        # then fall back to a safe default.
+        done   = obs_data.get("done",   payload.get("done",   False))
+        reward = obs_data.get("reward", payload.get("reward", 0.0))
+
+        # Guard against the server returning explicit null for reward.
+        if reward is None:
+            reward = 0.0
+
         observation = AiSeEnvObservation(
-            echoed_message=obs_data.get("echoed_message", ""),
-            message_length=obs_data.get("message_length", 0),
-            done=payload.get("done", False),
-            reward=payload.get("reward"),
-            metadata=obs_data.get("metadata", {}),
+            code=obs_data.get("code", ""),
+            task_description=obs_data.get("task_description", ""),
+            history=obs_data.get("history", []),
+            hint=obs_data.get("hint"),
+            done=done,
+            reward=reward,
         )
 
         return StepResult(
             observation=observation,
-            reward=payload.get("reward"),
-            done=payload.get("done", False),
+            reward=reward,
+            done=done,
         )
 
     def _parse_state(self, payload: Dict) -> State:

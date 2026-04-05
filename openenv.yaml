@@ -91,6 +91,6 @@ reward:
   range: [0.0, 1.0]
   description: >
     Graded across 3 pillars: syntax validity (0.2), test case correctness
-    (0.6–0.8), and structural rule compliance (0.2 where applicable).
+    (0.6-0.8), and structural rule compliance (0.2 where applicable).
     Efficiency bonus applied for early solves. Regression penalty of -0.05
     per previously passing test that now fails.

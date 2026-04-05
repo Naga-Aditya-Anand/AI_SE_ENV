@@ -197,11 +197,11 @@ AI_SE_ENV/
 ├── openenv.yaml                   # OpenEnv manifest
 ├── pyproject.toml                 # Project metadata and dependencies
 ├── client.py                      # AiSeEnvEnv client
+├── Dockerfile                     # Container image
 ├── README.md                      # This file
 └── server/
     ├── AI_SE_ENV_environment.py   # Core environment logic
     ├── app.py                     # FastAPI application
-    ├── Dockerfile                 # Container image
     ├── skill_report.py            # Diagnostic skill report card
     ├── leaderboard.py             # Live leaderboard
     ├── graders/

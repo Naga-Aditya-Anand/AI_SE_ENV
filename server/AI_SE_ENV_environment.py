@@ -93,33 +93,51 @@ class AiSeEnvEnvironment(Environment):
     # ------------------------------------------------------------------
     # reset
     # ------------------------------------------------------------------
-    def reset(self, difficulty: str = "easy") -> AiSeEnvObservation:
+    def reset(self, **kwargs) -> AiSeEnvObservation:
         """
         Reset the environment for a new episode.
 
         Args:
-            difficulty: task key — one of ALL_TASKS
+            difficulty: task key — one of ALL_TASKS (default: "easy")
+        
+        Returns:
+            AiSeEnvObservation with initial state
+            
+        Raises:
+            Exception: If difficulty is not found in available tasks
         """
-        if difficulty not in self._tasks:
-            difficulty = "easy"
+        try:
+            difficulty = kwargs.get("difficulty", "easy")
+            
+            if difficulty not in self._tasks:
+                difficulty = "easy"
 
-        self._current_task       = self._tasks[difficulty]
-        self._current_difficulty = difficulty
-        self._history            = []
-        self._steps              = 0
-        self._review_steps       = 0
-        self._prev_passed        = set()
-        self._episode_best       = 0.0
-        self._state              = State(episode_id=str(uuid4()), step_count=0)
+            self._current_task       = self._tasks[difficulty]
+            self._current_difficulty = difficulty
+            self._history            = []
+            self._steps              = 0
+            self._review_steps       = 0
+            self._prev_passed        = set()
+            self._episode_best       = 0.0
+            self._state              = State(episode_id=str(uuid4()), step_count=0)
 
-        return AiSeEnvObservation(
-            code=self._current_task["code"],
-            task_description=self._current_task["description"],
-            history=[],
-            hint=None,
-            done=False,
-            reward=0.0,
-        )
+            observation = AiSeEnvObservation(
+                code=self._current_task["code"],
+                task_description=self._current_task["description"],
+                history=[],
+                hint=None,
+                done=False,
+                reward=0.0,
+            )
+            
+            return observation
+            
+        except Exception as e:
+            import sys
+            import traceback
+            print(f"[ERROR] Reset failed: {str(e)}", file=sys.stderr)
+            print(f"[TRACEBACK] {traceback.format_exc()}", file=sys.stderr)
+            raise
 
     # ------------------------------------------------------------------
     # step
