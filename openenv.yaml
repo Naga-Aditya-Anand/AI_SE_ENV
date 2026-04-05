@@ -1,0 +1,96 @@
+spec_version: 1
+name: AI_SE_ENV
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+description: >
+  AI Software Engineer Environment — an agent benchmark for evaluating
+  LLM ability to debug and fix real-world Python code across 7 tasks
+  of increasing difficulty. Covers syntax errors, type errors, logic bugs,
+  off-by-one errors, edge case handling, concurrency bugs, and memory
+  efficiency issues. Features a diagnostic skill report card and live
+  leaderboard.
+
+tasks:
+  - id: easy
+    difficulty: easy
+    description: Fix a syntax error (missing colon in function definition)
+    bug_type: syntax
+
+  - id: easy_2
+    difficulty: easy
+    description: Fix a return type bug (returns str instead of int)
+    bug_type: type
+
+  - id: medium
+    difficulty: medium
+    description: Fix a logical error in an average computation
+    bug_type: logic
+
+  - id: medium_2
+    difficulty: medium
+    description: Fix an off-by-one error in a loop range
+    bug_type: off_by_one
+
+  - id: hard
+    difficulty: hard
+    description: Handle messy real-world API data with missing keys and wrong types
+    bug_type: edge_case
+
+  - id: hard_2
+    difficulty: hard
+    description: Fix a thread-safety bug by adding proper locking
+    bug_type: concurrency
+
+  - id: hard_3
+    difficulty: hard
+    description: Refactor an unbounded list accumulation into a memory-efficient generator
+    bug_type: performance
+
+action_space:
+  type: AiSeEnvAction
+  fields:
+    action_type:
+      type: string
+      enum: [fix, refactor, review]
+      description: >
+        fix — submit corrected code (costs a step).
+        refactor — fix graded on correctness + code quality (costs a step).
+        review — get grader feedback without consuming a step (reward=0).
+    content:
+      type: string
+      description: The submitted Python code
+
+observation_space:
+  type: AiSeEnvObservation
+  fields:
+    code:
+      type: string
+      description: The original broken code
+    task_description:
+      type: string
+      description: Natural language description of the bug to fix
+    history:
+      type: array
+      items: string
+      description: Past submissions with grader feedback injected
+    hint:
+      type: string
+      nullable: true
+      description: Optional hint surfaced after 2 failed attempts
+    done:
+      type: boolean
+    reward:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+
+reward:
+  range: [0.0, 1.0]
+  description: >
+    Graded across 3 pillars: syntax validity (0.2), test case correctness
+    (0.6–0.8), and structural rule compliance (0.2 where applicable).
+    Efficiency bonus applied for early solves. Regression penalty of -0.05
+    per previously passing test that now fails.
