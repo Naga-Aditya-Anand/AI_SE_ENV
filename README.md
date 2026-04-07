@@ -54,7 +54,7 @@ Action type semantics:
 | `history` | list[string] | Past submissions with grader feedback injected |
 | `hint` | string or null | Optional hint surfaced after 2 failed attempts |
 | `done` | boolean | Whether the episode has ended |
-| `reward` | float | Score for the last action (0.0 – 1.0) |
+| `reward` | float | Score for the last action (strictly between 0 and 1) |
 
 ---
 
@@ -81,19 +81,19 @@ Grading uses a 3-pillar scoring system:
 **For tasks without a structure rule (easy, medium, hard):**
 - Syntax validity: +0.2
 - Test case correctness: up to +0.8 (proportional to tests passed)
-- Maximum: 1.0
 
 **For tasks with a structure rule (hard_2, hard_3):**
 - Syntax validity: +0.2
 - Test case correctness: up to +0.6
 - Structure rule compliance: +0.2 (uses `threading.Lock` / uses `yield`)
-- Maximum: 1.0
 
 **Additional reward shaping:**
-- **Efficiency bonus** — solving on step 1 = 1.0, step 2 = 0.95, step 3+ = 0.90
+- **Efficiency bonus** — solving on step 1 = 0.99, step 2 = 0.95, step 3+ = 0.90
 - **Regression penalty** — −0.05 per test that was passing before but now fails
 - **Hint** — natural language hint surfaced after 2 failed attempts
 - **Code quality bonus** — additional +0.1 when using `refactor` action type
+
+All rewards are strictly between 0 and 1 (exclusive).
 
 ---
 
@@ -107,18 +107,29 @@ After running all 7 tasks, call `env.skill_report(formatted=True)` to get a diag
 ====================================================
   Tasks Attempted : 7
   Tasks Solved    : 6
-  Overall Score   : 0.98  [Excellent]
+  Overall Score   : 0.97  [Excellent]
 ----------------------------------------------------
   Category                        Score  Rating
 ----------------------------------------------------
-  Syntax Errors                   1.00  Excellent
-  Type Errors                     1.00  Excellent
-  Logic Errors                    1.00  Excellent
-  Off-by-One Errors               1.00  Excellent
+  Syntax Errors                   0.99  Excellent
+    [████████████████████] 99%
+  Type Errors                     0.99  Excellent
+    [████████████████████] 99%
+  Logic Errors                    0.99  Excellent
+    [████████████████████] 99%
+  Off-by-One Errors               0.99  Excellent
+    [████████████████████] 99%
   Edge Case Handling              0.84  Good
-  Concurrency & Thread Safety     1.00  Excellent
-  Performance & Memory Efficiency 1.00  Excellent
+    [█████████████████░░░] 84%
+  Concurrency & Thread Safety     0.99  Excellent
+    [████████████████████] 99%
+  Performance & Memory Efficiency  0.99  Excellent
+    [████████████████████] 99%
 ----------------------------------------------------
+  Strengths  : Syntax Errors, Type Errors, Logic Errors, Off-by-One Errors,
+               Edge Case Handling, Concurrency & Thread Safety,
+               Performance & Memory Efficiency
+
   Verdict: Outstanding — this model handles all bug categories with high reliability.
 ====================================================
 ```
@@ -131,14 +142,16 @@ Evaluated using `Qwen/Qwen2.5-72B-Instruct` via HuggingFace Inference Router:
 
 | Task | Score | Solved | Steps |
 |---|---|---|---|
-| easy | 1.000 | ✅ | 1 |
-| easy_2 | 1.000 | ✅ | 1 |
-| medium | 1.000 | ✅ | 1 |
-| medium_2 | 1.000 | ✅ | 1 |
+| easy | 0.990 | ✅ | 1 |
+| easy_2 | 0.990 | ✅ | 1 |
+| medium | 0.990 | ✅ | 1 |
+| medium_2 | 0.990 | ✅ | 1 |
 | hard | 0.840 | ❌ | 5 |
-| hard_2 | 1.000 | ✅ | 1 |
-| hard_3 | 1.000 | ✅ | 1 |
-| **Overall** | **0.977** | **6/7** | — |
+| hard_2 | 0.990 | ✅ | 1 |
+| hard_3 | 0.990 | ✅ | 1 |
+| **Overall** | **0.969** | **6/7** | — |
+
+The `hard` task (edge case handling) is the most challenging — the model repeatedly submitted a solution scoring 0.84, unable to pass the remaining test cases within the 5-step limit.
 
 ---
 
