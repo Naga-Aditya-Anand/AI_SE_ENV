@@ -35,11 +35,17 @@ def submit(
 
     Args:
         model_name:    identifier for the model (e.g. "Qwen/Qwen2.5-72B")
-        overall_score: normalised score 0.0–1.0 for this run
+        overall_score: normalised score strictly between 0 and 1
         tasks_solved:  number of tasks where score >= 0.9
         skill_scores:  optional dict of bug_type → score for this run
     """
-    overall_score = round(max(0.0, min(1.0, overall_score)), 4)
+    # Ensure score is strictly between 0 and 1 (not 0.0 and not 1.0)
+    overall_score = round(overall_score, 4)
+    if overall_score >= 1.0:
+        overall_score = 0.99
+    elif overall_score <= 0.0:
+        overall_score = 0.01
+    
     skill_scores = skill_scores or {}
 
     if model_name not in _board:

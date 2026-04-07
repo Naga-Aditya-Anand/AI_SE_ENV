@@ -173,14 +173,14 @@ class AiSeEnvEnvironment(Environment):
             self._current_task, action.content, action_type=action.action_type
         )
 
-        # Efficiency bonus
-        if score >= 0.99:
+        # Efficiency bonus (ensure score stays strictly between 0 and 1)
+        if score >= 0.95:
             if self._steps == 1:
-                score = 0.99
+                score = 0.98
             elif self._steps == 2:
-                score = min(score, 0.95)
+                score = min(score, 0.94)
             else:
-                score = min(score, 0.90)
+                score = min(score, 0.89)
 
         # Regression penalty
         test_cases = self._current_task.get("test_cases", [])
@@ -205,11 +205,11 @@ class AiSeEnvEnvironment(Environment):
 
         # Hint after 2 failed attempts
         hint = None
-        if self._steps >= 2 and score < 0.99:
+        if self._steps >= 2 and score < 0.95:
             hint = self._current_task.get("hint")
 
-        # Done condition
-        done = score >= 0.99 or self._steps >= self.MAX_STEPS
+        # Done condition (success when score >= 0.95)
+        done = score >= 0.95 or self._steps >= self.MAX_STEPS
 
         # Record into skill tracker when episode ends
         if done:
@@ -223,13 +223,16 @@ class AiSeEnvEnvironment(Environment):
             f"Grader Feedback:\n{feedback}"
         )
 
+        # THE ULTIMATE FAILSAFE: Guarantee the score is strictly between (0, 1)
+        safe_score = max(0.01, min(score, 0.99))
+
         return AiSeEnvObservation(
             code=self._current_task["code"],
             task_description=self._current_task["description"],
             history=self._history,
             hint=hint,
             done=done,
-            reward=round(score, 4),
+            reward=round(safe_score, 4),
         )
 
     # ------------------------------------------------------------------

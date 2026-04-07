@@ -59,15 +59,22 @@ def log_start(task: str, model: str) -> None:
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str] = None) -> None:
     action_inline = action.replace("\n", " ").strip()[:120]
     error_val     = error if error else "null"
+    
+    # Force the reward into the strictly safe (0, 1) range for the logs
+    safe_reward = max(0.01, min(reward, 0.99))
+    
     print(
         f"[STEP] step={step} action={action_inline} "
-        f"reward={reward:.2f} done={str(done).lower()} error={error_val}",
+        f"reward={safe_reward:.2f} done={str(done).lower()} error={error_val}",
         flush=True,
     )
 
 
 def log_end(success: bool, steps: int, rewards: List[float]) -> None:
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards) if rewards else "0.01"
+    # Force all rewards in the array into the safe range
+    safe_rewards = [max(0.01, min(r, 0.99)) for r in rewards]
+    rewards_str = ",".join(f"{r:.2f}" for r in safe_rewards) if safe_rewards else "0.01"
+    
     print(
         f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
