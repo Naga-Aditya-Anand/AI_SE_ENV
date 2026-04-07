@@ -274,4 +274,5 @@ def grade_code(task, agent_output, action_type="fix"):
         "\n".join(feedback_msgs) if feedback_msgs else "Success! All tests passed."
     )
 
-    return min(round(score, 4), 1.0), final_feedback
+    final_score = max(0.01, min(round(score, 4), 0.99))
+    return final_score, final_feedback

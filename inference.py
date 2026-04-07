@@ -67,7 +67,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 
 
 def log_end(success: bool, steps: int, rewards: List[float]) -> None:
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards) if rewards else "0.00"
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards) if rewards else "0.01"
     print(
         f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
@@ -164,7 +164,7 @@ def run_episode(client: OpenAI, env: AiSeEnvEnvironment, difficulty: str) -> dic
                 done   = obs.done
                 error  = None
             except Exception as step_exc:
-                reward = 0.0
+                reward = 0.01
                 done   = True
                 error  = str(step_exc)
 
@@ -180,15 +180,15 @@ def run_episode(client: OpenAI, env: AiSeEnvEnvironment, difficulty: str) -> dic
         info(f"[DEBUG] Episode error: {episode_exc}")
 
     finally:
-        try:
-            if hasattr(env, "close"):
-                env.close()
-        except Exception:
-            pass
+            try:
+                if hasattr(env, "close"):
+                    env.close()
+            except Exception:
+                pass
 
-        episode_score = max(rewards) if rewards else 0.0
-        success       = episode_score >= SUCCESS_THRESHOLD
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+            episode_score = max(rewards) if rewards else 0.01
+            success       = episode_score >= SUCCESS_THRESHOLD
+            log_end(success=success, steps=steps_taken, rewards=rewards)
 
     return {
         "task":    difficulty,

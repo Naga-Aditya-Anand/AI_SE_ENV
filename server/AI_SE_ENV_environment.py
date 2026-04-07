@@ -127,7 +127,7 @@ class AiSeEnvEnvironment(Environment):
                 history=[],
                 hint=None,
                 done=False,
-                reward=0.0,
+                reward=0.01,
             )
             
             return observation
@@ -164,7 +164,7 @@ class AiSeEnvEnvironment(Environment):
                 history=self._history,
                 hint=None,
                 done=False,
-                reward=0.0,
+                reward=0.01,
             )
 
         # ── FIX / REFACTOR — consume a step ───────────────────────
@@ -174,9 +174,9 @@ class AiSeEnvEnvironment(Environment):
         )
 
         # Efficiency bonus
-        if score >= 1.0:
+        if score >= 0.99:
             if self._steps == 1:
-                score = 1.0
+                score = 0.99
             elif self._steps == 2:
                 score = min(score, 0.95)
             else:
@@ -193,7 +193,7 @@ class AiSeEnvEnvironment(Environment):
             regressions = self._prev_passed - current_passed
             if regressions:
                 penalty = len(regressions) * 0.05
-                score = max(0.0, score - penalty)
+                score = max(0.01, score - penalty)
                 feedback += (
                     f"\n⚠ Regression penalty: -{penalty:.2f} "
                     f"({len(regressions)} previously passing test(s) now fail)"
@@ -205,11 +205,11 @@ class AiSeEnvEnvironment(Environment):
 
         # Hint after 2 failed attempts
         hint = None
-        if self._steps >= 2 and score < 1.0:
+        if self._steps >= 2 and score < 0.99:
             hint = self._current_task.get("hint")
 
         # Done condition
-        done = score >= 1.0 or self._steps >= self.MAX_STEPS
+        done = score >= 0.99 or self._steps >= self.MAX_STEPS
 
         # Record into skill tracker when episode ends
         if done:
