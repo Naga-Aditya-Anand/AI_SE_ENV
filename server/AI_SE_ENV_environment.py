@@ -87,7 +87,7 @@ class AiSeEnvEnvironment(Environment):
         self._steps             = 0
         self._review_steps      = 0
         self._prev_passed       = set()
-        self._episode_best      = 0.0
+        self._episode_best      = 0.01
         self._tracker           = SkillTracker()
 
     # ------------------------------------------------------------------
@@ -118,7 +118,7 @@ class AiSeEnvEnvironment(Environment):
             self._steps              = 0
             self._review_steps       = 0
             self._prev_passed        = set()
-            self._episode_best       = 0.0
+            self._episode_best       = 0.01
             self._state              = State(episode_id=str(uuid4()), step_count=0)
 
             observation = AiSeEnvObservation(

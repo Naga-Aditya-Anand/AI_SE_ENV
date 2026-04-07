@@ -65,6 +65,6 @@ class AiSeEnvObservation(Observation):
         description="Whether the episode has ended",
     )
     reward: float = Field(
-        default=0.0,
-        description="Reward for the last action (0.0–1.0)",
+        default=0.01,
+        description="Reward for the last action (0.01–1.0)",
     )

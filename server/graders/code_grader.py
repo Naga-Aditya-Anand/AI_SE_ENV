@@ -183,7 +183,7 @@ def grade_code(task, agent_output, action_type="fix"):
         compile(agent_output, "<string>", "exec")
         score += 0.2
     except Exception as e:
-        return 0.0, f"Syntax Error: {str(e)}"
+        return 0.01, f"Syntax Error: {str(e)}"
 
     # ----------------------------------------------------------
     # 2. LOGIC CHECK — test cases  (0.8 or 0.6 with struct rule)
