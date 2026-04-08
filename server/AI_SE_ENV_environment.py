@@ -23,6 +23,7 @@ Tasks:
 """
 
 from uuid import uuid4
+import math
 
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
@@ -38,6 +39,21 @@ from . import leaderboard as lb
 from .tasks.easy import EASY_TASK, EASY_TASK_2
 from .tasks.medium import MEDIUM_TASK, MEDIUM_TASK_2
 from .tasks.hard import HARD_TASK, HARD_TASK_2, HARD_TASK_3
+
+
+def _strict_score(value, default=0.01) -> float:
+    """Clamp score to [0.01, 0.99] and reject non-finite values."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        score = default
+
+    if not math.isfinite(score):
+        score = default
+
+    clamped = max(0.01, min(score, 0.99))
+    rounded = round(clamped, 4)
+    return max(0.01, min(rounded, 0.99))
 
 
 class AiSeEnvEnvironment(Environment):
@@ -87,7 +103,7 @@ class AiSeEnvEnvironment(Environment):
         self._steps             = 0
         self._review_steps      = 0
         self._prev_passed       = set()
-        self._episode_best      = 0.01
+        self._episode_best      = _strict_score(0.01)
         self._tracker           = SkillTracker()
 
     # ------------------------------------------------------------------
@@ -118,7 +134,7 @@ class AiSeEnvEnvironment(Environment):
             self._steps              = 0
             self._review_steps       = 0
             self._prev_passed        = set()
-            self._episode_best       = 0.01
+            self._episode_best       = _strict_score(0.01)
             self._state              = State(episode_id=str(uuid4()), step_count=0)
 
             observation = AiSeEnvObservation(
@@ -127,7 +143,7 @@ class AiSeEnvEnvironment(Environment):
                 history=[],
                 hint=None,
                 done=False,
-                reward=0.01,
+                reward=_strict_score(0.01),
             )
             
             return observation
@@ -164,7 +180,7 @@ class AiSeEnvEnvironment(Environment):
                 history=self._history,
                 hint=None,
                 done=False,
-                reward=0.01,
+                reward=_strict_score(0.01),
             )
 
         # ── FIX / REFACTOR — consume a step ───────────────────────
@@ -201,7 +217,7 @@ class AiSeEnvEnvironment(Environment):
         self._prev_passed = current_passed
 
         # Ensure score is strictly between 0 and 1 after all modifications
-        score = max(0.01, min(score, 0.99))
+        score = _strict_score(score)
 
         # Track best score
         self._episode_best = max(self._episode_best, score)
@@ -227,7 +243,7 @@ class AiSeEnvEnvironment(Environment):
         )
 
         # THE ULTIMATE FAILSAFE: Guarantee the score is strictly between (0, 1)
-        safe_score = max(0.01, min(score, 0.99))
+        safe_score = _strict_score(score)
 
         return AiSeEnvObservation(
             code=self._current_task["code"],
@@ -235,7 +251,7 @@ class AiSeEnvEnvironment(Environment):
             history=self._history,
             hint=hint,
             done=done,
-            reward=round(safe_score, 4),
+            reward=safe_score,
         )
 
     # ------------------------------------------------------------------

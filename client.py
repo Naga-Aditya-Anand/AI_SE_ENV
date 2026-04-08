@@ -6,6 +6,7 @@
 
 """Ai Se Env Environment Client."""
 
+import math
 from typing import Dict
 
 from openenv.core import EnvClient
@@ -106,12 +107,12 @@ class AiSeEnvEnv(
             history=obs_data.get("history", []),
             hint=obs_data.get("hint"),
             done=done,
-            reward = max(0.01, min(float(reward), 0.99)),
+            reward=self._strict_score(reward),
         )
 
         return StepResult(
             observation=observation,
-            reward = max(0.01, min(float(reward), 0.99)),
+            reward=self._strict_score(reward),
             done=done,
         )
 
@@ -129,3 +130,18 @@ class AiSeEnvEnv(
             episode_id=payload.get("episode_id"),
             step_count=payload.get("step_count", 0),
         )
+
+    @staticmethod
+    def _strict_score(value, default=0.01) -> float:
+        """Clamp score to [0.01, 0.99] and reject non-finite values."""
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            score = default
+
+        if not math.isfinite(score):
+            score = default
+
+        clamped = max(0.01, min(score, 0.99))
+        rounded = round(clamped, 4)
+        return max(0.01, min(rounded, 0.99))

@@ -1,4 +1,5 @@
 from typing import Dict, List
+import math
 
 
 # Maps bug_type tag → human readable category name
@@ -28,7 +29,13 @@ def _rating(score: float) -> str:
     return "Weak"
 
 def _safe_score(score: float) -> float:
-    return round(max(0.01, min(float(score), 0.99)), 4)
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        value = 0.01
+    if not math.isfinite(value):
+        value = 0.01
+    return round(max(0.01, min(value, 0.99)), 4)
 
 
 class SkillTracker:

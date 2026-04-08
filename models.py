@@ -66,5 +66,7 @@ class AiSeEnvObservation(Observation):
     )
     reward: float = Field(
         default=0.01,
-        description="Reward for the last action (0.01–1.0)",
+        gt=0.0,
+        lt=1.0,
+        description="Reward for the last action (strictly between 0 and 1)",
     )

@@ -17,6 +17,7 @@ Environment variables:
 
 import os
 import sys
+import math
 from typing import List, Optional
 
 from openai import OpenAI
@@ -50,6 +51,21 @@ ALL_TASKS = [
 ]
 
 
+def _strict_score(value, default=0.01) -> float:
+    """Clamp score to [0.01, 0.99] and reject non-finite values."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        score = default
+
+    if not math.isfinite(score):
+        score = default
+
+    clamped = max(0.01, min(score, 0.99))
+    rounded = round(clamped, 4)
+    return max(0.01, min(rounded, 0.99))
+
+
 # ── Spec-compliant logging — stdout only ─────────────────────────────
 
 def log_start(task: str, model: str) -> None:
@@ -61,7 +77,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     error_val     = error if error else "null"
     
     # Force the reward into the strictly safe (0, 1) range for the logs
-    safe_reward = max(0.01, min(reward, 0.99))
+    safe_reward = _strict_score(reward)
     
     print(
         f"[STEP] step={step} action={action_inline} "
@@ -72,7 +88,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 
 def log_end(success: bool, steps: int, rewards: List[float]) -> None:
     # Force all rewards in the array into the safe range
-    safe_rewards = [max(0.01, min(r, 0.99)) for r in rewards]
+    safe_rewards = [_strict_score(r) for r in rewards]
     rewards_str = ",".join(f"{r:.2f}" for r in safe_rewards) if safe_rewards else "0.01"
     
     print(
@@ -167,11 +183,11 @@ def run_episode(client: OpenAI, env: AiSeEnvEnvironment, difficulty: str) -> dic
 
             try:
                 obs    = env.step(action)
-                reward = obs.reward
+                reward = _strict_score(obs.reward)
                 done   = obs.done
                 error  = None
             except Exception as step_exc:
-                reward = 0.01
+                reward = _strict_score(0.01)
                 done   = True
                 error  = str(step_exc)
 
@@ -193,7 +209,7 @@ def run_episode(client: OpenAI, env: AiSeEnvEnvironment, difficulty: str) -> dic
             except Exception:
                 pass
 
-            episode_score = max(rewards) if rewards else 0.01
+            episode_score = _strict_score(max(rewards) if rewards else 0.01)
             success       = episode_score >= SUCCESS_THRESHOLD
             log_end(success=success, steps=steps_taken, rewards=rewards)
 

@@ -1,6 +1,25 @@
 import ast
+import math
 import threading as _threading_module
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+
+def _strict_score(value, default=0.01):
+    """
+    Clamp score to a strict open interval (0, 1) using [0.01, 0.99].
+    Handles invalid/non-finite values defensively.
+    """
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        score = default
+
+    if not math.isfinite(score):
+        score = default
+
+    clamped = max(0.01, min(score, 0.99))
+    rounded = round(clamped, 4)
+    return max(0.01, min(rounded, 0.99))
 
 
 def safe_execute(code_str, func_name, inputs, timeout_seconds=0.1, allow_threading=False):
@@ -182,7 +201,7 @@ def grade_code(task, agent_output, action_type="fix"):
         compile(agent_output, "<string>", "exec")
         score += 0.2
     except Exception as e:
-        return 0.01, f"Syntax Error: {str(e)}"
+        return _strict_score(0.01), f"Syntax Error: {str(e)}"
 
     # ----------------------------------------------------------
     # 2. LOGIC CHECK — test cases  (0.8 or 0.6 with struct rule)
@@ -196,7 +215,7 @@ def grade_code(task, agent_output, action_type="fix"):
         func_name = extract_function_name(agent_output)
 
         if not func_name:
-            return 0.2, (
+            return _strict_score(0.2), (
                 "Error: Could not extract a function name. "
                 "Make sure you are defining a standard Python function."
             )
@@ -273,9 +292,4 @@ def grade_code(task, agent_output, action_type="fix"):
         "\n".join(feedback_msgs) if feedback_msgs else "Success! All tests passed."
     )
 
-    # Ensure score is strictly between 0 and 1 (not 0.0 and not 1.0)
-    # NEW — clamp BEFORE rounding to avoid floating-point edge cases
-    clamped = max(0.01, min(score, 0.99))
-    final_score = round(clamped, 4)
-    final_score = max(0.01, min(final_score, 0.99))  # double-check after rounding
-    return final_score, final_feedback
+    return _strict_score(score), final_feedback
