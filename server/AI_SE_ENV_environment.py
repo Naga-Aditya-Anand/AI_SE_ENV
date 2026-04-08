@@ -109,27 +109,18 @@ class AiSeEnvEnvironment(Environment):
     # ------------------------------------------------------------------
     # reset
     # ------------------------------------------------------------------
-    def reset(self, **kwargs) -> AiSeEnvObservation:
-        """
-        Reset the environment for a new episode.
-
-        Args:
-            difficulty: task key — one of ALL_TASKS (default: "easy")
-        
-        Returns:
-            AiSeEnvObservation with initial state
-            
-        Raises:
-            Exception: If difficulty is not found in available tasks
-        """
+    def reset(self, task_id: str = None, **kwargs) -> AiSeEnvObservation:
+        """Reset the environment for a new episode."""
         try:
-            difficulty = kwargs.get("difficulty", "easy")
+            # OpenEnv validator passes 'task_id', but your local client uses 'difficulty'.
+            # This safely supports both.
+            task_key = task_id or kwargs.get("difficulty", "easy")
             
-            if difficulty not in self._tasks:
-                difficulty = "easy"
+            if task_key not in self._tasks:
+                task_key = "easy"
 
-            self._current_task       = self._tasks[difficulty]
-            self._current_difficulty = difficulty
+            self._current_task       = self._tasks[task_key]
+            self._current_difficulty = task_key
             self._history            = []
             self._steps              = 0
             self._review_steps       = 0
@@ -137,7 +128,7 @@ class AiSeEnvEnvironment(Environment):
             self._episode_best       = _strict_score(0.01)
             self._state              = State(episode_id=str(uuid4()), step_count=0)
 
-            observation = AiSeEnvObservation(
+            return AiSeEnvObservation(
                 code=self._current_task["code"],
                 task_description=self._current_task["description"],
                 history=[],
@@ -146,120 +137,128 @@ class AiSeEnvEnvironment(Environment):
                 reward=_strict_score(0.01),
             )
             
-            return observation
-            
         except Exception as e:
-            import sys
-            import traceback
-            print(f"[ERROR] Reset failed: {str(e)}", file=sys.stderr)
-            print(f"[TRACEBACK] {traceback.format_exc()}", file=sys.stderr)
-            raise
+            # Failsafe: Never crash on reset
+            return AiSeEnvObservation(
+                code="", task_description="Reset Error", history=[], hint=None, done=True, reward=_strict_score(0.01)
+            )
 
     # ------------------------------------------------------------------
     # step
     # ------------------------------------------------------------------
     def step(self, action: AiSeEnvAction) -> AiSeEnvObservation:  # type: ignore[override]
         """Execute one step in the environment."""
+        try:
+            # Defensive fallback: some HTTP execution paths can invoke step() on a
+            # fresh environment instance without a prior reset() call.
+            # Ensure we always have an active task instead of crashing with 500.
+            if self._current_task is None:
+                fallback_difficulty = self._current_difficulty or "easy"
+                self.reset(task_id=fallback_difficulty)
 
-        # Defensive fallback: some HTTP execution paths can invoke step() on a
-        # fresh environment instance without a prior reset() call.
-        # Ensure we always have an active task instead of crashing with 500.
-        if self._current_task is None:
-            fallback_difficulty = self._current_difficulty or "easy"
-            self.reset(difficulty=fallback_difficulty)
+            self._state.step_count += 1
 
-        self._state.step_count += 1
+            # ── REVIEW — free feedback, no step consumed ───────────────
+            if action.action_type == "review":
+                _, feedback = grade_code(
+                    self._current_task, action.content, action_type="review"
+                )
+                self._review_steps += 1
+                self._history.append(
+                    f"[REVIEW #{self._review_steps}]\n"
+                    f"Code Submitted:\n{action.content}\n\n"
+                    f"Grader Feedback:\n{feedback}"
+                )
+                return AiSeEnvObservation(
+                    code=self._current_task["code"],
+                    task_description=self._current_task["description"],
+                    history=self._history,
+                    hint=None,
+                    done=False,
+                    reward=_strict_score(0.01),
+                )
 
-        # ── REVIEW — free feedback, no step consumed ───────────────
-        if action.action_type == "review":
-            _, feedback = grade_code(
-                self._current_task, action.content, action_type="review"
+            # ── FIX / REFACTOR — consume a step ───────────────────────
+            self._steps += 1
+            score, feedback = grade_code(
+                self._current_task, action.content, action_type=action.action_type
             )
-            self._review_steps += 1
+
+            # Efficiency bonus (ensure score stays strictly between 0 and 1)
+            if score >= 0.95:
+                if self._steps == 1:
+                    score = 0.98
+                elif self._steps == 2:
+                    score = min(score, 0.94)
+                else:
+                    score = min(score, 0.89)
+
+            # Regression penalty
+            test_cases = self._current_task.get("test_cases", [])
+            current_passed = set()
+            for i in range(len(test_cases)):
+                if f"Test {i+1}" not in feedback:
+                    current_passed.add(i)
+
+            if self._prev_passed:
+                regressions = self._prev_passed - current_passed
+                if regressions:
+                    penalty = len(regressions) * 0.05
+                    score = score - penalty
+                    feedback += (
+                        f"\n⚠ Regression penalty: -{penalty:.2f} "
+                        f"({len(regressions)} previously passing test(s) now fail)"
+                    )
+            self._prev_passed = current_passed
+
+            # Ensure score is strictly between 0 and 1 after all modifications
+            score = _strict_score(score)
+
+            # Track best score
+            self._episode_best = max(self._episode_best, score)
+
+            # Hint after 2 failed attempts
+            hint = None
+            if self._steps >= 2 and score < 0.95:
+                hint = self._current_task.get("hint")
+
+            # Done condition (success when score >= 0.95)
+            done = score >= 0.95 or self._steps >= self.MAX_STEPS
+
+            # Record into skill tracker when episode ends
+            if done:
+                bug_type = self._current_task.get("bug_type", "logic")
+                self._tracker.record(bug_type, self._episode_best)
+
+            # History
             self._history.append(
-                f"[REVIEW #{self._review_steps}]\n"
+                f"[{action.action_type.upper()} #{self._steps}]\n"
                 f"Code Submitted:\n{action.content}\n\n"
                 f"Grader Feedback:\n{feedback}"
             )
+
+            # THE ULTIMATE FAILSAFE: Guarantee the score is strictly between (0, 1)
+            safe_score = _strict_score(score)
+
             return AiSeEnvObservation(
                 code=self._current_task["code"],
                 task_description=self._current_task["description"],
                 history=self._history,
-                hint=None,
-                done=False,
-                reward=_strict_score(0.01),
+                hint=hint,
+                done=done,
+                reward=safe_score,
             )
-
-        # ── FIX / REFACTOR — consume a step ───────────────────────
-        self._steps += 1
-        score, feedback = grade_code(
-            self._current_task, action.content, action_type=action.action_type
-        )
-
-        # Efficiency bonus (ensure score stays strictly between 0 and 1)
-        if score >= 0.95:
-            if self._steps == 1:
-                score = 0.98
-            elif self._steps == 2:
-                score = min(score, 0.94)
-            else:
-                score = min(score, 0.89)
-
-        # Regression penalty
-        test_cases = self._current_task.get("test_cases", [])
-        current_passed = set()
-        for i in range(len(test_cases)):
-            if f"Test {i+1}" not in feedback:
-                current_passed.add(i)
-
-        if self._prev_passed:
-            regressions = self._prev_passed - current_passed
-            if regressions:
-                penalty = len(regressions) * 0.05
-                score = score - penalty
-                feedback += (
-                    f"\n⚠ Regression penalty: -{penalty:.2f} "
-                    f"({len(regressions)} previously passing test(s) now fail)"
-                )
-        self._prev_passed = current_passed
-
-        # Ensure score is strictly between 0 and 1 after all modifications
-        score = _strict_score(score)
-
-        # Track best score
-        self._episode_best = max(self._episode_best, score)
-
-        # Hint after 2 failed attempts
-        hint = None
-        if self._steps >= 2 and score < 0.95:
-            hint = self._current_task.get("hint")
-
-        # Done condition (success when score >= 0.95)
-        done = score >= 0.95 or self._steps >= self.MAX_STEPS
-
-        # Record into skill tracker when episode ends
-        if done:
-            bug_type = self._current_task.get("bug_type", "logic")
-            self._tracker.record(bug_type, self._episode_best)
-
-        # History
-        self._history.append(
-            f"[{action.action_type.upper()} #{self._steps}]\n"
-            f"Code Submitted:\n{action.content}\n\n"
-            f"Grader Feedback:\n{feedback}"
-        )
-
-        # THE ULTIMATE FAILSAFE: Guarantee the score is strictly between (0, 1)
-        safe_score = _strict_score(score)
-
-        return AiSeEnvObservation(
-            code=self._current_task["code"],
-            task_description=self._current_task["description"],
-            history=self._history,
-            hint=hint,
-            done=done,
-            reward=safe_score,
-        )
+        except Exception as e:
+            # IF ANYTHING CRASHES, DO NOT LET FASTAPI RETURN A 500 ERROR.
+            # A 500 error causes the validator to assign an out-of-bounds 0.0 score.
+            return AiSeEnvObservation(
+                code=self._current_task.get("code", "") if self._current_task else "",
+                task_description="An internal environment error occurred.",
+                history=self._history + [f"System Crash Prevented: {str(e)}"],
+                hint=None,
+                done=True, # Immediately end the episode so the agent stops
+                reward=_strict_score(0.01), # Provide a strictly valid fail score
+            )
 
     # ------------------------------------------------------------------
     # state
