@@ -58,7 +58,7 @@ action_space:
       description: >
         fix — submit corrected code (costs a step).
         refactor — fix graded on correctness + code quality (costs a step).
-        review — get grader feedback without consuming a step (reward=0).
+        review — get grader feedback without consuming a step (reward=0.01).
     content:
       type: string
       description: The submitted Python code
@@ -84,11 +84,11 @@ observation_space:
       type: boolean
     reward:
       type: number
-      minimum: 0.0
-      maximum: 1.0
+      minimum: 0.01
+      maximum: 0.99
 
 reward:
-  range: [0.0, 1.0]
+  range: [0.01, 0.99]
   description: >
     Graded across 3 pillars: syntax validity (0.2), test case correctness
     (0.6-0.8), and structural rule compliance (0.2 where applicable).
