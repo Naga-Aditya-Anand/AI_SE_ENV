@@ -27,6 +27,9 @@ def _rating(score: float) -> str:
             return label
     return "Weak"
 
+def _safe_score(score: float) -> float:
+    return round(max(0.01, min(float(score), 0.99)), 4)
+
 
 class SkillTracker:
     """
@@ -48,7 +51,7 @@ class SkillTracker:
     def record(self, bug_type: str, score: float):
         """Record the final score for a completed episode."""
         if bug_type in self._scores:
-            self._scores[bug_type].append(round(score, 4))
+            self._scores[bug_type].append(_safe_score(score))
 
     def reset_all(self):
         """Wipe all recorded scores (call between full benchmark runs)."""
@@ -86,10 +89,9 @@ class SkillTracker:
 
         tasks_attempted = len(attempted)
         tasks_solved = sum(1 for _, s in attempted if s >= 0.9)
-        overall_score = (
-            round(sum(s for _, s in attempted) / tasks_attempted, 4)
-            if tasks_attempted > 0 else 0.0
-        )
+        overall_score = _safe_score(
+            sum(s for _, s in attempted) / tasks_attempted
+        ) if tasks_attempted > 0 else 0.01
 
         skills = {}
         strengths = []
@@ -99,7 +101,7 @@ class SkillTracker:
             scores = self._scores[bug_type]
             if not scores:
                 continue
-            avg = round(sum(scores) / len(scores), 4)
+            avg = _safe_score(sum(scores) / len(scores))
             rating = _rating(avg)
             skills[bug_type] = {
                 "label":    label,

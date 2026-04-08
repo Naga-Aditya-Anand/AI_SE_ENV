@@ -40,13 +40,13 @@ def submit(
         skill_scores:  optional dict of bug_type → score for this run
     """
     # Ensure score is strictly between 0 and 1 (not 0.0 and not 1.0)
-    overall_score = round(overall_score, 4)
+    overall_score = _safe_score(overall_score)
     if overall_score >= 1.0:
         overall_score = 0.99
     elif overall_score <= 0.0:
         overall_score = 0.01
     
-    skill_scores = skill_scores or {}
+    skill_scores = {k: _safe_score(v) for k, v in (skill_scores or {}).items()}
 
     if model_name not in _board:
         _board[model_name] = {
@@ -72,7 +72,8 @@ def submit(
         updated_skills = dict(entry["skill_scores"])
         for bug_type, score in skill_scores.items():
             updated_skills[bug_type] = max(
-                updated_skills.get(bug_type, 0.0), score
+                updated_skills.get(bug_type, 0.01),
+                score,
             )
 
         _board[model_name] = {
@@ -178,3 +179,6 @@ def formatted_leaderboard() -> str:
 
     lines.append("=" * 62)
     return "\n".join(lines)
+
+def _safe_score(score: float) -> float:
+    return round(max(0.01, min(float(score), 0.99)), 4)

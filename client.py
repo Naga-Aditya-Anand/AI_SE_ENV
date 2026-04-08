@@ -94,11 +94,11 @@ class AiSeEnvEnv(
         # Check obs_data first, then fall back to the top-level payload key,
         # then fall back to a safe default.
         done   = obs_data.get("done",   payload.get("done",   False))
-        reward = obs_data.get("reward", payload.get("reward", 0.0))
+        reward = obs_data.get("reward", payload.get("reward", 0.01))
 
         # Guard against the server returning explicit null for reward.
         if reward is None:
-            reward = 0.0
+            reward = 0.01
 
         observation = AiSeEnvObservation(
             code=obs_data.get("code", ""),
@@ -106,12 +106,12 @@ class AiSeEnvEnv(
             history=obs_data.get("history", []),
             hint=obs_data.get("hint"),
             done=done,
-            reward=reward,
+            reward = max(0.01, min(float(reward), 0.99)),
         )
 
         return StepResult(
             observation=observation,
-            reward=reward,
+            reward = max(0.01, min(float(reward), 0.99)),
             done=done,
         )
 
