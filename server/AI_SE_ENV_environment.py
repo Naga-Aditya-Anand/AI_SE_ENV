@@ -83,6 +83,7 @@ class AiSeEnvEnvironment(Environment):
     ]
 
     MAX_STEPS = 5
+    _LAST_RESET_DIFFICULTY: str = "easy"
 
     def __init__(self):
         self._state = State(episode_id=str(uuid4()), step_count=0)
@@ -121,6 +122,7 @@ class AiSeEnvEnvironment(Environment):
 
             self._current_task       = self._tasks[task_key]
             self._current_difficulty = task_key
+            AiSeEnvEnvironment._LAST_RESET_DIFFICULTY = task_key
             self._history            = []
             self._steps              = 0
             self._review_steps       = 0
@@ -155,6 +157,16 @@ class AiSeEnvEnvironment(Environment):
             if self._current_task is None:
                 fallback_difficulty = self._current_difficulty or "easy"
                 self.reset(task_id=fallback_difficulty)
+
+            # In stateless HTTP mode, step() may be called on a fresh env instance
+            # that hasn't seen reset(). Ensure a task is always initialised.
+            if self._current_task is None:
+                fallback_difficulty = (
+                    self._current_difficulty
+                    or AiSeEnvEnvironment._LAST_RESET_DIFFICULTY
+                    or "easy"
+                )
+                self.reset(difficulty=fallback_difficulty)
 
             self._state.step_count += 1
 
