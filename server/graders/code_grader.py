@@ -134,7 +134,7 @@ def measure_code_quality(code_str):
     try:
         tree = ast.parse(code_str)
         lines = code_str.strip().split("\n")
-        line_score = max(0.0, 1.0 - max(0, len(lines) - 20) * 0.05)
+        line_score = max(0.01, min(1.0 - max(0, len(lines) - 20) * 0.05, 0.99))
 
         # Count assigned variable names
         assigned_names = set()
@@ -143,10 +143,9 @@ def measure_code_quality(code_str):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         assigned_names.add(target.id)
-        var_score = max(0.0, 1.0 - max(0, len(assigned_names) - 10) * 0.1)
-
+        var_score = max(0.01, min(1.0 - max(0, len(assigned_names) - 10) * 0.1, 0.99))
         quality = (line_score + var_score) / 2
-        return round(quality, 3)
+        return round(max(0.01, min(quality, 0.99)), 3)
     except Exception:
         return 0.5  # Neutral fallback
 
