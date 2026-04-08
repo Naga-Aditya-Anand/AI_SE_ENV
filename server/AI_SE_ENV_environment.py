@@ -200,6 +200,9 @@ class AiSeEnvEnvironment(Environment):
                 )
         self._prev_passed = current_passed
 
+        # Ensure score is strictly between 0 and 1 after all modifications
+        score = max(0.01, min(score, 0.99))
+
         # Track best score
         self._episode_best = max(self._episode_best, score)
 
