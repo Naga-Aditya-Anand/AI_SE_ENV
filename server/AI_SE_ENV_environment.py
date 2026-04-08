@@ -193,7 +193,7 @@ class AiSeEnvEnvironment(Environment):
             regressions = self._prev_passed - current_passed
             if regressions:
                 penalty = len(regressions) * 0.05
-                score = max(0.01, score - penalty)
+                score = score - penalty
                 feedback += (
                     f"\n⚠ Regression penalty: -{penalty:.2f} "
                     f"({len(regressions)} previously passing test(s) now fail)"

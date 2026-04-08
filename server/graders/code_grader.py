@@ -274,9 +274,8 @@ def grade_code(task, agent_output, action_type="fix"):
     )
 
     # Ensure score is strictly between 0 and 1 (not 0.0 and not 1.0)
-    final_score = round(score, 4)
-    if final_score >= 1.0:
-        final_score = 0.99
-    elif final_score <= 0.0:
-        final_score = 0.01
+    # NEW — clamp BEFORE rounding to avoid floating-point edge cases
+    clamped = max(0.01, min(score, 0.99))
+    final_score = round(clamped, 4)
+    final_score = max(0.01, min(final_score, 0.99))  # double-check after rounding
     return final_score, final_feedback
