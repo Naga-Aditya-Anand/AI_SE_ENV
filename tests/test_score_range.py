@@ -56,6 +56,11 @@ class TestScoreRange(unittest.TestCase):
         fix_obs = env.step(AiSeEnvAction(action_type="fix", content=EASY_TASK["expected_solution"]))
         assert_strict_open_unit_interval(self, fix_obs.reward)
 
+    def test_step_without_reset_does_not_crash_and_keeps_score_in_range(self) -> None:
+        env = AiSeEnvEnvironment()
+        obs = env.step(AiSeEnvAction(action_type="fix", content=EASY_TASK["expected_solution"]))
+        assert_strict_open_unit_interval(self, obs.reward)
+
     def test_environment_clamps_non_finite_or_extreme_grader_scores(self) -> None:
         env = AiSeEnvEnvironment()
         env.reset(difficulty="easy")

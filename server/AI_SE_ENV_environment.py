@@ -161,6 +161,13 @@ class AiSeEnvEnvironment(Environment):
     def step(self, action: AiSeEnvAction) -> AiSeEnvObservation:  # type: ignore[override]
         """Execute one step in the environment."""
 
+        # Defensive fallback: some HTTP execution paths can invoke step() on a
+        # fresh environment instance without a prior reset() call.
+        # Ensure we always have an active task instead of crashing with 500.
+        if self._current_task is None:
+            fallback_difficulty = self._current_difficulty or "easy"
+            self.reset(difficulty=fallback_difficulty)
+
         self._state.step_count += 1
 
         # ── REVIEW — free feedback, no step consumed ───────────────
